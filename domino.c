@@ -1,0 +1,300 @@
+#include "domino.h"
+#include "time.h"
+
+	void initzialitzarFitxes(Partida *p){
+		int i,j,u=0;
+
+		Fitxa aux[28];
+		srand ( time(NULL) );
+		//creem la pila de les fitxes generals
+		p->stack = PILA_crea();
+		//generem en una array totes les fitxes possibles
+		for(i=0;i<7;i++){
+			for(j=i;j<7;j++){
+				aux[u].valors[0] = i;
+				aux[u].valors[1] = j;
+				u++;
+			}
+		}
+
+		//barrejem l'array de les fitxes
+		barrejar(aux,28);
+		//posem les fitxes dins de la pila general
+		for(i=0;i<28;i++){
+
+			PILA_push(&p->stack,aux[i]);
+		}
+	}
+
+	void barrejar(Fitxa *array, int n){
+	    int i;
+		for (i = 0; i < n - 1; i++) {
+			int j = i + rand() / (RAND_MAX / (n - i) + 1);
+		  	Fitxa t = array[j];
+		  	array[j] = array[i];
+		  	array[i] = t;
+		}
+	}
+
+	Partida repartirFitxes(Partida _p){
+		int i,j;
+		Partida p = _p;
+
+		//creem una llistaPDI per jugador
+		for(i=1;i<p.num_jugadors+1;i++){
+			p.jugador[i].stock = LLISTAPDI_crea();
+			//for que es fa 5 cops dona 5 fitxes a cada llistaPDI per jugador
+			for(j=0;j<5;j++){
+				//posem cada fitxa en la llista i la treiem de la pila
+				LLISTAPDI_insereix(&p.jugador[i].stock,PILA_top(p.stack));
+				PILA_pop(&p.stack);
+			}
+		}
+		//es crea la llistaPDI del taulell
+		p.taulell = LLISTAPDI_crea();
+		//posem la primera fitxa en el taulell i la treiem de la pila
+		LLISTAPDI_insereix(&p.taulell,PILA_top(p.stack));
+		PILA_pop(&p.stack);
+
+		return p;
+	}
+
+	Partida game(Partida _p,int ij,int *counter){
+		int opc,opc2,i,aux,error=0,error2=0,robar=1;
+		Fitxa t;
+		Partida p = _p;
+
+		//netejem pantalla
+		clrscr();
+		//printf("counter de passar %d",*counter);
+
+		printf("\n \tTaulell: ");
+		//fem un scan de la llista del taulell i printem les fitxes
+		LLISTAPDI_vesInici(&p.taulell);
+		do{
+			t = LLISTAPDI_consulta(p.taulell);
+			printf("[%d|%d]",t.valors[0],t.valors[1]);
+			LLISTAPDI_avanca(&p.taulell);
+		}while(!LLISTAPDI_fi(p.taulell));
+
+		printf("\n\n");
+		//quin es el jugador del respectiu torn
+		printf("\tFitxes %s:\n\n",p.jugador[ij].nom_jugador);
+		//posem les fitxes del jugador, scanejant la llistaPDI de ij jugador
+		LLISTAPDI_vesInici(&p.jugador[ij].stock);
+		i=1;
+		while(!LLISTAPDI_fi(p.jugador[ij].stock)){
+			//posem la fitxa en una fitxa auxiliar t i la printem per pantalla
+			t = LLISTAPDI_consulta(p.jugador[ij].stock);
+			printf("\t\t%d- [%d|%d]",i,t.valors[0],t.valors[1]);
+			//si la fitxa que hem tret coincideix per algun extrem amb la del tauler li posem l'indicador
+			if(coincideix(t.valors[0],t.valors[1],p.taulell,3)){
+				printf("->\n");
+				//si despres de totes les fitxes cap coincideix robar es quedara en 1
+				robar = 0;
+			}else{printf("\n");}
+			//avancem per la segurent fitxa fins que el while s'acaba arribant al LLISTAPDI_fi del jugador
+			LLISTAPDI_avanca(&p.jugador[ij].stock);
+			i++;
+		}
+		if(robar){
+			if(!PILA_buida(p.stack)){
+			printf("\t\t%d- Robar Fitxa\n",i);
+			*counter = 0;
+			} else {
+				printf("\t\t%d- Passar Torn\n",i);
+				(*counter)++;
+			}
+		}
+
+		do{
+			//bucle on demanem la opcio de quina fitxa utilitzar
+			error = 0;
+			printf("\n\tOpcio Fitxa:");
+
+			scanf("%d",&opc);
+			fflushnou();
+			//tornem a esccanejar la llistaPDI del jugador per veure si coincideix
+			LLISTAPDI_vesInici(&p.jugador[ij].stock);
+			i=1;
+			while(!LLISTAPDI_fi(p.jugador[ij].stock)){
+
+				t = LLISTAPDI_consulta(p.jugador[ij].stock);
+
+				if(opc == i){
+					// si la opcio es = a l'index de la llista de fitxes, significa que estem seleccionant la fitxa i de la llista
+					//llavors mirem si aquesta fitxa coincideix
+					if(coincideix(t.valors[0],t.valors[1],p.taulell,3)){
+
+						do{
+							*counter = 0;
+							error2 = 0;
+							opc2 = 0;
+							printf("\n\tPer on vols posar la fitxa? 1-Esquerra 2-Dreta :");
+							scanf("%d",&opc2);
+							fflushnou();
+
+							switch(opc2){
+								case 1:
+									//cas on la posem per l'esquerra
+									switch (coincideix(t.valors[0],t.valors[1],p.taulell,1)){
+										case 1:
+											aux = t.valors[1];
+											t.valors[1] = t.valors[0];
+											t.valors[0] = aux;
+											LLISTAPDI_vesInici(&p.taulell);
+											LLISTAPDI_insereix(&p.taulell,t);
+											LLISTAPDI_esborra(&p.jugador[ij].stock);
+
+											break;
+
+										case 2:
+											LLISTAPDI_vesInici(&p.taulell);
+											LLISTAPDI_insereix(&p.taulell,t);
+											LLISTAPDI_esborra(&p.jugador[ij].stock);
+
+											break;
+
+										default:
+											printf("\n\tNo es pot posar per l'esquerra!\n");
+											error2 = 1;
+									}
+									break;
+
+								case 2:
+									//cas on la posem per la dreta
+									switch (coincideix(t.valors[0],t.valors[1],p.taulell,2)){
+										case 3:
+											while(!LLISTAPDI_fi(p.taulell)){
+												LLISTAPDI_avanca(&p.taulell);
+											}
+											LLISTAPDI_insereix(&p.taulell,t);
+											LLISTAPDI_esborra(&p.jugador[ij].stock);
+
+
+											break;
+
+										case 4:
+											aux = t.valors[1];
+											t.valors[1] = t.valors[0];
+											t.valors[0] = aux;
+
+											while(!LLISTAPDI_fi(p.taulell)){
+												LLISTAPDI_avanca(&p.taulell);
+											}
+											LLISTAPDI_insereix(&p.taulell,t);
+											LLISTAPDI_esborra(&p.jugador[ij].stock);
+
+											break;
+
+										default:
+											printf("\n\tNo es pot posar per la dreta!\n");
+											error2 = 1;
+									}
+									break;
+
+								default:
+									//en cas que no coincideix significa que el jugador ha seleccionat una fitxa prohibida
+									printf("\n\tOpcio incorrecta\n");
+									error2 = 1;
+							}
+						}while (error2);
+					} else {
+
+						printf("\n\tFitxa incorrecta\n");
+						error= 1;
+					}
+				}
+				if(!LLISTAPDI_fi(p.jugador[ij].stock)){
+					LLISTAPDI_avanca(&p.jugador[ij].stock);
+				}
+				i++;
+			}
+
+			if (opc == i && robar){
+				//si la opcio es i+1 (el +1 es fa en el ultim i++) significa que esta fora de les opcions per tant pot significar
+				//que la opcio seleccionada es la de robar, ens assegurem mirant si el jugador pot robar una nova fitxa
+				if(!PILA_buida(p.stack)){
+					printf("\n\t\tHas robat la fitxa [%d|%d]\n\n\t--- Prem Enter per continuar ---",PILA_top(p.stack).valors[0],PILA_top(p.stack).valors[1]);
+					LLISTAPDI_insereix(&p.jugador[ij].stock,PILA_top(p.stack));
+					PILA_pop(&p.stack);
+					while ( getchar() != '\n');
+				}
+
+			} else {
+				if(opc>=i || opc < 1){
+					//si no es pot robar significara que la opcio si que esta fora de limits per tant es incorrecta
+					printf("\n\tOpcio incorrecta! Torna a intentar-ho\n");
+					error = 1;
+				}
+
+			}
+
+		}while(error);
+
+		return p;
+	}
+
+	int coincideix(int a,int b,LlistaPDI l,int mode){
+		Fitxa f;
+		int r=0;
+
+		switch(mode){
+
+			case 1:
+			//primer treiem la fitxa de l'esquerra
+			LLISTAPDI_vesInici(&l);
+			f = LLISTAPDI_consulta(l);
+			//mirem si el valor [X| ] de la fitxa coincideix amb algun valor dels dos valors de la fitxa que s'examina
+			if(f.valors[0]==a){
+				r = 1;
+			} else if (f.valors[0]==b){
+				r = 2;
+			}
+
+			break;
+
+			case 2:
+				LLISTAPDI_vesInici(&l);
+				//anem fins al final de la llista, treiem la fitxa de la dreta
+				while(!LLISTAPDI_fi(l)){
+					f = LLISTAPDI_consulta(l);
+					LLISTAPDI_avanca(&l);
+				}
+				//mirem si el valor [ |X] de la fitxa coincideix amb algun valor dels dos valors de la fitxa que s'examina
+
+				if(f.valors[1]==a){
+					r = 3;
+				} else if (f.valors[1]==b){
+					r = 4;
+				}
+
+			break;
+
+			case 3:
+			//primer treiem la fitxa de l'esquerra
+			LLISTAPDI_vesInici(&l);
+			f = LLISTAPDI_consulta(l);
+			//mirem si el valor [X| ] de la fitxa coincideix amb algun valor dels dos valors de la fitxa que s'examina
+			if(f.valors[0]==a){
+				r = 1;
+			} else if (f.valors[0]==b){
+				r = 2;
+			}
+			//anem fins al final de la llista, treiem la fitxa de la dreta
+			while(!LLISTAPDI_fi(l)){
+				f = LLISTAPDI_consulta(l);
+				LLISTAPDI_avanca(&l);
+			}
+			//mirem si el valor [ |X] de la fitxa coincideix amb algun valor dels dos valors de la fitxa que s'examina
+			if(f.valors[1]==a){
+				r = 3;
+			} else if (f.valors[1]==b){
+				r = 4;
+			}
+
+			break;
+		}
+
+		return r;
+	}
