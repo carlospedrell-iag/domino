@@ -1,3 +1,3 @@
 # domino
 
-A university project that conists of a Domino game written in C
+A university project that consists of a Domino game written in C
